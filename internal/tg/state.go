@@ -2,6 +2,7 @@ package tg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -433,6 +434,22 @@ func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id 
 
 	formatted, err := formatDocument(ctx, docURI.Filename(), st.Document, formatWithTerragruntCLI)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			l.Warn(
+				"Formatting canceled",
+				"uri", docURI,
+				"error", err,
+			)
+
+			return lsp.FormatResponse{
+				Response: lsp.Response{
+					RPC: lsp.RPCVersion,
+					ID:  &id,
+				},
+				Result: []protocol.TextEdit{},
+			}
+		}
+
 		l.Warn(
 			"Falling back to built-in formatter",
 			"uri", docURI,
@@ -463,6 +480,10 @@ func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id 
 func formatDocument(ctx context.Context, filename, document string, formatter func(context.Context, string, string) ([]byte, error)) ([]byte, error) {
 	formatted, err := formatter(ctx, filename, document)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
+
 		return hclwrite.Format([]byte(document)), err
 	}
 

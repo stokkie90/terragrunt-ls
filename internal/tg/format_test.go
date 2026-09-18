@@ -28,3 +28,15 @@ func TestFormatDocumentFallsBackWhenTerragruntUnavailable(t *testing.T) {
 	assert.Equal(t, "terragrunt not found", err.Error())
 	assert.Equal(t, "locals {\n  foo = \"bar\"\n}", string(formatted))
 }
+
+func TestFormatDocumentDoesNotFallbackOnCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	formatted, err := formatDocument(ctx, "/tmp/terragrunt.hcl", "locals{}", func(ctx context.Context, filename, document string) ([]byte, error) {
+		return nil, ctx.Err()
+	})
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, formatted)
+}
