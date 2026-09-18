@@ -2,7 +2,9 @@ package tg
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"terragrunt-ls/internal/ast"
@@ -22,6 +24,8 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
+
+var runTerragruntHclFmt = formatWithTerragruntCLI
 
 type State struct {
 	// Map of file names to Terragrunt configs
@@ -429,7 +433,14 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 		"uri", docURI,
 	)
 
-	formatted := hclwrite.Format([]byte(st.Document))
+	formatted, err := formatDocument(docURI.Filename(), st.Document)
+	if err != nil {
+		l.Warn(
+			"Falling back to built-in formatter",
+			"uri", docURI,
+			"error", err,
+		)
+	}
 
 	return lsp.FormatResponse{
 		Response: lsp.Response{
@@ -449,6 +460,51 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 			},
 		},
 	}
+}
+
+func formatDocument(filename, document string) ([]byte, error) {
+	formatted, err := runTerragruntHclFmt(filename, document)
+	if err != nil {
+		return hclwrite.Format([]byte(document)), err
+	}
+
+	return formatted, nil
+}
+
+func formatWithTerragruntCLI(filename, document string) ([]byte, error) {
+	tempDir, err := os.MkdirTemp("", "terragrunt-ls-format-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	tempFilename := filepath.Base(filename)
+	if tempFilename == "" || tempFilename == "." || tempFilename == string(filepath.Separator) {
+		tempFilename = "terragrunt.hcl"
+	}
+
+	tempPath := filepath.Join(tempDir, tempFilename)
+	if err := os.WriteFile(tempPath, []byte(document), 0o600); err != nil {
+		return nil, fmt.Errorf("write temp file: %w", err)
+	}
+
+	cmd := exec.Command("terragrunt", "hcl", "fmt", tempPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmedOutput := strings.TrimSpace(string(output))
+		if trimmedOutput != "" {
+			return nil, fmt.Errorf("run terragrunt hcl fmt: %w: %s", err, trimmedOutput)
+		}
+
+		return nil, fmt.Errorf("run terragrunt hcl fmt: %w", err)
+	}
+
+	formatted, err := os.ReadFile(tempPath)
+	if err != nil {
+		return nil, fmt.Errorf("read formatted file: %w", err)
+	}
+
+	return formatted, nil
 }
 
 func (s *State) PrepareRename(l logger.Logger, id int, docURI protocol.DocumentURI, position protocol.Position) lsp.PrepareRenameResponse {
