@@ -25,8 +25,6 @@ import (
 	"go.lsp.dev/uri"
 )
 
-var runTerragruntHclFmt = formatWithTerragruntCLI
-
 type State struct {
 	// Map of file names to Terragrunt configs
 	Configs map[string]store.Store
@@ -433,7 +431,7 @@ func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id 
 		"uri", docURI,
 	)
 
-	formatted, err := formatDocument(ctx, docURI.Filename(), st.Document)
+	formatted, err := formatDocument(ctx, docURI.Filename(), st.Document, formatWithTerragruntCLI)
 	if err != nil {
 		l.Warn(
 			"Falling back to built-in formatter",
@@ -462,8 +460,8 @@ func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id 
 	}
 }
 
-func formatDocument(ctx context.Context, filename, document string) ([]byte, error) {
-	formatted, err := runTerragruntHclFmt(ctx, filename, document)
+func formatDocument(ctx context.Context, filename, document string, formatter func(context.Context, string, string) ([]byte, error)) ([]byte, error) {
+	formatted, err := formatter(ctx, filename, document)
 	if err != nil {
 		return hclwrite.Format([]byte(document)), err
 	}
