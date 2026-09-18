@@ -4,7 +4,7 @@
 
 ## Configuration
 
-By default this extension will only recognize all HCL files as valid Terragrunt configuration files. You can configure the following setting to adjust this:
+Zed associates this extension with `.hcl` files. To match the VS Code extension more closely, you can map the common Terragrunt filenames explicitly:
 
 ```json
 {
@@ -12,8 +12,25 @@ By default this extension will only recognize all HCL files as valid Terragrunt 
     "Terragrunt": [
       "terragrunt.hcl", 
       "terragrunt.stack.hcl",
+      "terragrunt.values.hcl",
       "root.hcl"
     ]
   }
 }
 ```
+
+## Format on Save
+
+Zed can format Terragrunt files on save through the language server. Enable it in your Zed settings:
+
+```json
+{
+  "languages": {
+    "Terragrunt": {
+      "format_on_save": "on"
+    }
+  }
+}
+```
+
+When formatting is requested, `terragrunt-ls` now prefers `terragrunt hcl fmt` and falls back to the built-in HCL formatter if the `terragrunt` CLI is unavailable.
