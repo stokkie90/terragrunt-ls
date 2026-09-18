@@ -419,7 +419,7 @@ func (s *State) TextDocumentCompletion(l logger.Logger, id int, docURI protocol.
 	return response
 }
 
-func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.DocumentURI) lsp.FormatResponse {
+func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id int, docURI protocol.DocumentURI) lsp.FormatResponse {
 	st, ok := s.Configs[docURI.Filename()]
 	if !ok {
 		return lsp.FormatResponse{
@@ -433,7 +433,7 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 		"uri", docURI,
 	)
 
-	formatted, err := formatDocument(docURI.Filename(), st.Document)
+	formatted, err := formatDocument(ctx, docURI.Filename(), st.Document)
 	if err != nil {
 		l.Warn(
 			"Falling back to built-in formatter",
@@ -462,8 +462,8 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 	}
 }
 
-func formatDocument(filename, document string) ([]byte, error) {
-	formatted, err := runTerragruntHclFmt(filename, document)
+func formatDocument(ctx context.Context, filename, document string) ([]byte, error) {
+	formatted, err := runTerragruntHclFmt(ctx, filename, document)
 	if err != nil {
 		return hclwrite.Format([]byte(document)), err
 	}
@@ -471,7 +471,7 @@ func formatDocument(filename, document string) ([]byte, error) {
 	return formatted, nil
 }
 
-func formatWithTerragruntCLI(filename, document string) ([]byte, error) {
+func formatWithTerragruntCLI(ctx context.Context, filename, document string) ([]byte, error) {
 	tempDir, err := os.MkdirTemp("", "terragrunt-ls-format-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -488,7 +488,7 @@ func formatWithTerragruntCLI(filename, document string) ([]byte, error) {
 		return nil, fmt.Errorf("write temp file: %w", err)
 	}
 
-	cmd := exec.Command("terragrunt", "hcl", "fmt", tempPath)
+	cmd := exec.CommandContext(ctx, "terragrunt", "hcl", "fmt", tempPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		trimmedOutput := strings.TrimSpace(string(output))

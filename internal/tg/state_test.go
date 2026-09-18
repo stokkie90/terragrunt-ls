@@ -713,7 +713,7 @@ bar=   "baz"
 			require.Empty(t, diags)
 
 			// Request formatting
-			response := state.TextDocumentFormatting(l, 1, "file:///terragrunt.hcl")
+			response := state.TextDocumentFormatting(t.Context(), l, 1, "file:///terragrunt.hcl")
 
 			// Verify the formatting result
 			require.Len(t, response.Result, 1)
