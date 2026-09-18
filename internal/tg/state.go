@@ -508,6 +508,9 @@ func formatWithTerragruntCLI(ctx context.Context, filename, document string) ([]
 	}
 
 	cmd := exec.CommandContext(ctx, "terragrunt", "hcl", "fmt", tempPath)
+	if dir := filepath.Dir(filename); dir != "" && dir != "." {
+		cmd.Dir = dir
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		trimmedOutput := strings.TrimSpace(string(output))
