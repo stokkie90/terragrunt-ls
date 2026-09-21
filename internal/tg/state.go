@@ -2,7 +2,10 @@ package tg
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"terragrunt-ls/internal/ast"
@@ -415,7 +418,7 @@ func (s *State) TextDocumentCompletion(l logger.Logger, id int, docURI protocol.
 	return response
 }
 
-func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.DocumentURI) lsp.FormatResponse {
+func (s *State) TextDocumentFormatting(ctx context.Context, l logger.Logger, id int, docURI protocol.DocumentURI) lsp.FormatResponse {
 	st, ok := s.Configs[docURI.Filename()]
 	if !ok {
 		return lsp.FormatResponse{
@@ -429,7 +432,30 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 		"uri", docURI,
 	)
 
-	formatted := hclwrite.Format([]byte(st.Document))
+	formatted, err := formatDocument(ctx, docURI.Filename(), st.Document, formatWithTerragruntCLI)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			l.Warn(
+				"Formatting canceled",
+				"uri", docURI,
+				"error", err,
+			)
+
+			return lsp.FormatResponse{
+				Response: lsp.Response{
+					RPC: lsp.RPCVersion,
+					ID:  &id,
+				},
+				Result: []protocol.TextEdit{},
+			}
+		}
+
+		l.Warn(
+			"Falling back to built-in formatter",
+			"uri", docURI,
+			"error", err,
+		)
+	}
 
 	return lsp.FormatResponse{
 		Response: lsp.Response{
@@ -449,6 +475,58 @@ func (s *State) TextDocumentFormatting(l logger.Logger, id int, docURI protocol.
 			},
 		},
 	}
+}
+
+func formatDocument(ctx context.Context, filename, document string, formatter func(context.Context, string, string) ([]byte, error)) ([]byte, error) {
+	formatted, err := formatter(ctx, filename, document)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
+
+		return hclwrite.Format([]byte(document)), err
+	}
+
+	return formatted, nil
+}
+
+func formatWithTerragruntCLI(ctx context.Context, filename, document string) ([]byte, error) {
+	tempDir, err := os.MkdirTemp("", "terragrunt-ls-format-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	tempFilename := filepath.Base(filename)
+	if tempFilename == "" || tempFilename == "." || tempFilename == string(filepath.Separator) {
+		tempFilename = "terragrunt.hcl"
+	}
+
+	tempPath := filepath.Join(tempDir, tempFilename)
+	if err := os.WriteFile(tempPath, []byte(document), 0o600); err != nil {
+		return nil, fmt.Errorf("write temp file: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, "terragrunt", "hcl", "fmt", tempPath)
+	if dir := filepath.Dir(filename); dir != "" && dir != "." {
+		cmd.Dir = dir
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmedOutput := strings.TrimSpace(string(output))
+		if trimmedOutput != "" {
+			return nil, fmt.Errorf("run terragrunt hcl fmt: %w: %s", err, trimmedOutput)
+		}
+
+		return nil, fmt.Errorf("run terragrunt hcl fmt: %w", err)
+	}
+
+	formatted, err := os.ReadFile(tempPath)
+	if err != nil {
+		return nil, fmt.Errorf("read formatted file: %w", err)
+	}
+
+	return formatted, nil
 }
 
 func (s *State) PrepareRename(l logger.Logger, id int, docURI protocol.DocumentURI, position protocol.Position) lsp.PrepareRenameResponse {
