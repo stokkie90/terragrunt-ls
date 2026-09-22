@@ -27,11 +27,14 @@ Zed can format Terragrunt files on save through the language server. Enable it i
 {
   "languages": {
     "Terragrunt": {
+      "formatter": "language_server",
       "format_on_save": "on"
     }
   }
 }
 ```
+
+Use `"formatter": "language_server"` so Zed sends formatting requests to `terragrunt-ls` instead of falling back to another formatter such as Prettier.
 
 When formatting is requested, `terragrunt-ls` now prefers `terragrunt hcl fmt` and falls back to the built-in HCL formatter if the `terragrunt` CLI is unavailable.
 
@@ -48,7 +51,8 @@ Unless you override those variables yourself, the language server will write deb
 
 If format on save still does not run, verify that:
 
-1. `format_on_save` is enabled for `Terragrunt`.
-2. `terragrunt-ls` is installed and available on your `PATH`.
-3. `terragrunt` is installed and available on your `PATH`.
-4. The file is associated with the `Terragrunt` language via `file_types`.
+1. `formatter` is set to `"language_server"` for `Terragrunt`.
+2. `format_on_save` is enabled for `Terragrunt`.
+3. `terragrunt-ls` is installed and available on your `PATH`.
+4. `terragrunt` is installed and available on your `PATH`.
+5. The file is associated with the `Terragrunt` language via `file_types`.

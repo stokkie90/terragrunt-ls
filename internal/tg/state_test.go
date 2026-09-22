@@ -728,3 +728,29 @@ bar=   "baz"
 		})
 	}
 }
+
+func TestState_TextDocumentFormatting_BadlyFormattedTerragruntFile(t *testing.T) {
+	t.Parallel()
+
+	state := tg.NewState()
+	l := testutils.NewTestLogger(t)
+
+	document := `locals{
+foo="bar"
+bar=   "baz"
+}`
+	diags := state.OpenDocument(t.Context(), l, "file:///tmp/project/terragrunt.hcl", document)
+	require.Empty(t, diags)
+
+	response := state.TextDocumentFormatting(t.Context(), l, 1, "file:///tmp/project/terragrunt.hcl")
+
+	require.Len(t, response.Result, 1)
+	assert.Equal(t, `locals {
+  foo = "bar"
+  bar = "baz"
+}`, response.Result[0].NewText)
+	assert.Equal(t, uint32(0), response.Result[0].Range.Start.Line)
+	assert.Equal(t, uint32(0), response.Result[0].Range.Start.Character)
+	assert.Equal(t, uint32(3), response.Result[0].Range.End.Line)
+	assert.Equal(t, uint32(1), response.Result[0].Range.End.Character)
+}
