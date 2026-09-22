@@ -13,5 +13,7 @@ func TestNewInitializeResponse_AdvertisesDocumentFormatting(t *testing.T) {
 
 	response := lsp.NewInitializeResponse(1)
 
-	assert.True(t, response.Result.Capabilities.DocumentFormattingProvider)
+	provider, ok := response.Result.Capabilities.DocumentFormattingProvider.(bool)
+	assert.True(t, ok)
+	assert.True(t, provider)
 }
