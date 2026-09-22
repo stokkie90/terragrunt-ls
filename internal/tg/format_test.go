@@ -3,6 +3,7 @@ package tg
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,4 +40,14 @@ func TestFormatDocumentDoesNotFallbackOnCanceledContext(t *testing.T) {
 
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, formatted)
+}
+
+func TestFormattingWorkingDir(t *testing.T) {
+	t.Parallel()
+
+	existingDir := t.TempDir()
+
+	assert.Equal(t, existingDir, formattingWorkingDir(filepath.Join(existingDir, "terragrunt.hcl")))
+	assert.Empty(t, formattingWorkingDir(filepath.Join(existingDir, "missing", "terragrunt.hcl")))
+	assert.Empty(t, formattingWorkingDir("terragrunt.hcl"))
 }
