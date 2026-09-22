@@ -508,9 +508,7 @@ func formatWithTerragruntCLI(ctx context.Context, filename, document string) ([]
 	}
 
 	cmd := exec.CommandContext(ctx, "terragrunt", "hcl", "fmt", tempPath)
-	if dir := formattingWorkingDir(filename); dir != "" {
-		cmd.Dir = dir
-	}
+	cmd.Dir = filepath.Dir(tempPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		trimmedOutput := strings.TrimSpace(string(output))
@@ -527,20 +525,6 @@ func formatWithTerragruntCLI(ctx context.Context, filename, document string) ([]
 	}
 
 	return formatted, nil
-}
-
-func formattingWorkingDir(filename string) string {
-	dir := filepath.Dir(filename)
-	if dir == "" || dir == "." {
-		return ""
-	}
-
-	info, err := os.Stat(dir)
-	if err != nil || !info.IsDir() {
-		return ""
-	}
-
-	return dir
 }
 
 func (s *State) PrepareRename(l logger.Logger, id int, docURI protocol.DocumentURI, position protocol.Position) lsp.PrepareRenameResponse {
