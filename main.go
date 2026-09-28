@@ -223,7 +223,7 @@ func handleMessage(ctx context.Context, l logger.Logger, writer io.Writer, state
 			"URI", request.Params.TextDocument.URI,
 		)
 
-		response := state.TextDocumentFormatting(l, request.ID, request.Params.TextDocument.URI)
+		response := state.TextDocumentFormatting(ctx, l, request.ID, request.Params.TextDocument.URI)
 
 		writeResponse(l, writer, response)
 

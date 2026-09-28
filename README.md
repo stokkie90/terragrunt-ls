@@ -12,6 +12,16 @@ The capabilities of this language server are documented in the [server capabilit
 
 For instructions on how to setup the Terragrunt Language Server in your editor, see the [setup documentation](./docs/setup.md).
 
+### Zed
+
+To install the Zed extension locally:
+
+1. Clone this repository.
+2. In Zed, open the command palette and run `zed: install dev extension`.
+3. Select the cloned repository's `zed-extension` directory as the extension directory.
+
+Once installed, Zed will use the extension from that directory. Additional Zed configuration is documented in [`zed-extension/README.md`](./zed-extension/README.md).
+
 ## Contributions
 
 Contributions are welcome, though the maintainers request your patience and understanding, as this is not a project we can dedicate a lot of time to.
